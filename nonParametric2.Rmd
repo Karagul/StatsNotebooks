@@ -1,0 +1,116 @@
+---
+title: "nonParametric2"
+author: "Steve Zhang"
+date: "June 11, 2017"
+output: html_document
+---
+
+```{r}
+pairSign = function(x, y, test = "two.sided", prob = 0.5) {
+    N = length(x)
+    M = sum(x > y)
+    if (N < 25) {
+        if (test == "two.sided") {
+            return(2 * pbinom(M, N, prob = prob))
+        } else if (test == "less") {
+            return(pbinom(M, N, prob = prob))
+        } else {
+            return(pbinom(M, N, prob = prob, lower.tail = FALSE))
+        }
+    } else {
+        Z = (M - n*prob)/(sqrt(n)/2)
+        if (test == "two.sided") {
+            return(2*pnorm(Z))
+        } else if (test == "less") {
+            return(pnorm(Z))
+        } else {
+            return(pnorm(Z, lower.tail = FALSE))
+        }
+    }
+}
+```
+
+```{r}
+#Friedman test for randomized block designs
+scores = c(4.8, 8.1, 5.0, 7.9, 3.9, 2.2, 9.2, 2.6, 9.4, 7.4, 6.8, 6.6, 3.6, 5.3, 2.1, 6.2, 9.6, 6.5, 8.5, 2)
+antibiotics = factor(c(rep("I", 5), rep("II", 5), rep("III", 5), rep("IV", 5)))
+child = factor(c(rep(1:5, 4)))
+friedman.test(scores ~ antibiotics | child)
+```
+
+```{r}
+library(tseries)
+```
+
+```{r}
+#Runs test for randomization with tseries package
+answers = c(1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, -1, -1, 1, -1, 1, -1, 1, 1, -1)
+runs.test(answers)
+```
+
+```{r}
+#approximation for Spearman's rank correlation coefficient
+spearman = function(x, y) {
+    n = length(x)
+    Rs = 1.0 - 6 * sum((x - y)^2)/(n*(n^2 - 1))
+    return(Rs)
+}
+judge = c(7, 4, 2, 6, 1, 3, 8, 5)
+exam = c(1, 5, 3, 4, 8, 7, 2, 6)
+spearman(judge, exam)
+```
+```{r}
+#Kendall rank correlation coefficient
+kendall = function(x, y) {
+    numer = 0.0
+    N = length(x)
+    for (i in 2:N) {
+        for (j in 1:(i - 1)) {
+            numer = numer + sign(x[i] - x[j])*sign(y[i] - y[j])
+        }
+    }
+    kstat = numer / (N*(N - 1)/2)
+    return(kstat)
+}
+kendall(judge, exam)
+```
+```{r}
+computers = matrix(c(3.06, 500, 6, 2.68, 320, 4, 2.92, 640, 6), nrow = 3)
+```
+
+```{r}
+dotprod = function(x, y) {
+    return(sum(x * y))
+}
+```
+
+```{r}
+euclid = function(x, y) {
+    return(sqrt(sum((x - y)^2)))
+}
+```
+
+```{r}
+magnitude = function(x) {
+    return(sqrt(sum(x^2)))
+}
+```
+
+
+```{r}
+cosDist = function(data, weights) {
+    data = data / weights
+    n = ncol(data)
+    for (i in 1:(n - 1)){
+        for (j in (i+1):n) {
+            item1 = data[, i]
+            item2 = data[, j]
+            cDist = dotprod(item1, item2)/(magnitude(item1) * magnitude(item2))
+            angle = acos(cDist)*(180/pi)
+            cat("Angle between item", i, "and", j, "is", angle, "degrees.", "\n")
+        }
+    }
+}
+cosDist(computers, c(1, 1, 1))
+```
+
