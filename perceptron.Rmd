@@ -1,0 +1,91 @@
+---
+title: "perceptron"
+author: "Steve Zhang"
+date: "July 7, 2017"
+output: html_document
+---
+
+```{r}
+email = data.frame(and=c(1, 0, 0, 1, 1, 1), viagra=c(1, 0, 1, 0, 0, 0), the=c(0, 1, 1, 0, 1, 1), of=c(1, 1, 0, 1, 0, 1), nigeria=c(1, 0, 0, 0, 1, 0), y=c(1, -1, 1, -1, 1, -1))
+```
+
+
+```{r}
+perceptron = function(data, nu, max.iter){
+    numVars = ncol(data) - 1
+    n = ncol(data)
+    weights = rep(0, numVars) #initalize weights to all 0 zero
+    numExp = nrow(data)
+    iterations = 0
+    for (i in 1:max.iter) {
+        correct = TRUE
+        for (j in 1:numExp) {
+            yprime = dotprod(weights, data[j, 1:numVars])
+            y = data[j, n]
+            agree = sign(y*yprime)
+            if (agree <= 0) { #adjust weights if example is incorrect
+                correct = FALSE
+                weights = weights + nu*y*data[j, 1:numVars]
+            }
+        }
+        iterations = iterations + 1
+        if (correct == TRUE) { #if all examples classified correctly 
+            break()
+        }
+    }
+    cat(iterations, "iterations needed for convergence.", "\n")
+    return(weights)
+}
+```
+
+```{r}
+winnow = function(data, theta, max.iter, f1=2, f2=0.5){
+    numVars = ncol(data) - 1
+    n = ncol(data)
+    weights = rep(1, numVars) #initalize weights to all 1 vector
+    numExp = nrow(data)
+    iterations = 0
+    for (i in 1:max.iter) {
+        correct = TRUE
+        for (j in 1:numExp) {
+            x = data[j, 1:numVars]
+            w.x = dotprod(weights, x)
+            y = data[j, n]
+            if (w.x <= theta & y == 1) {
+                correct = FALSE
+                for (j in 1:numVars) { #increase too low weights by multiplying by f1
+                    if (x[j] == 1) {
+                        weights[j] = weights[j] * f1
+                    }
+                }
+            } else if(w.x >= theta & y == -1) {
+                correct = FALSE #decrease too large weights by multiplying by f2
+                for (j in 1:numVars) {
+                    if (x[j] == 1) {
+                        weights[j] = weights[j] * f2
+                    }
+                }
+            }
+        }
+        iterations = iterations + 1
+        if (correct == TRUE) { #if all examples classified correctly 
+            break()
+        }
+    }
+    cat(iterations, "iterations needed for convergence.", "\n")
+    return(weights)
+}
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+x = rnorm(100)
+y = rnorm(100)
+df = data.frame(x=x, y=y)
+df$label = ifelse(2*df$x + df$y > 0, 1, -1)
+ggplot(df, aes(x=x, y=y, color=factor(label))) + geom_point()
+'''
+
