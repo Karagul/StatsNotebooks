@@ -1,0 +1,210 @@
+```{r}
+uTest = function(c0, c1, cstar, alternative, data) {
+    model = lm(y~x, data)
+    b0 = coef(model)[1]
+    b1 = coef(model)[2]
+    resids = resid(model)
+    n = dim(data)[1]
+    xbar = mean(data$x)
+    S2 = sum(resids^2)
+    sx = sum((data$x - xbar)^2)
+    sigma = sqrt(S2/(n - 2))
+    uStat = (c0^2/n + (c0*xbar - c1)^2/sx)^(-0.5)*((c0*b0 +c1*b1 - cstar)/sigma)
+    cat("U statistic:", uStat, "\n")
+    degFree = n - 2
+    if (alternative == "not.equal") {
+        cat("P value:", 2*pt(uStat, df=degFree))        
+    } else if(alternative =="lesser") {
+        cat("P value:", pt(uStat, df=degFree))
+    } else {
+        cat("P value:", pt(uStat, df=degFree, lower.tail = FALSE))
+    }
+}
+```
+
+```{r}
+predInt = function(data, xnew, a0) {
+    model = lm(y~x, data = data)
+    n = dim(data)[1]
+    xbar = mean(data$x)
+    resids = resid(model)
+    S2 = sum(resids^2)
+    sx = sqrt(sum((data$x - xbar)^2))
+    sig = sqrt(S2/(n - 2))
+    yhat = predict(model, data.frame(x=c(xnew)))
+    tcoef = qt((1 - a0/2), df = (n- 2))
+    return(yhat + c(-1, 1)*tcoef*sig*sqrt(1 + 1/n + (xnew - xbar)^2/sx^2))
+}
+```
+
+```{r}
+water = data.frame(x=c(194.5, 194.3, 197.9, 198.4, 199.4, 199.9, 200.9, 201.1, 201.4, 201.3, 203.6, 204.6, 209.5, 208.6, 210.7, 211.9, 212.2), y=c(20.79, 20.79, 22.4, 22.67, 23.15, 23.35, 23.89, 23.99, 24.02, 24.01, 25.14, 26.57, 28.49, 27.76, 29.04, 29.88, 30.06))
+wMod = lm(y~x, data = water)
+summary(wMod)
+```
+
+```{r}
+plot(resid(wMod))
+```
+```{r}
+logMod = lm(log(y)~x, data = water)
+summary(logMod)
+```
+```{r}
+sigPrime = function(model) {
+    resids = resid(model)
+    n = length(resids)
+    return(sqrt(sum(resids^2)/ (n - 2)))
+}
+```
+
+```{r}
+regConf = function(data, alpha){
+    n = dim(data)[1]
+    model = lm(y~x, data = data)
+    intercept = coef(model)[1]
+    slope = coef(model)[2]
+    resids = resid(model)
+    xbar = mean(data$x)
+    S2 = sum(resids^2)
+    sx = sqrt(sum((data$x - xbar)^2))
+    sigma = sqrt(S2/(n - 2))
+    tstar = qt(1.0 - alpha/2, df = (n - 2))
+    confSlope = slope + c(-1, 1)*sigma/sx * tstar
+    confInt = intercept + c(-1, 1)*sigma*sqrt(1/n + (xbar/sx)^2)*tstar
+    cat("Confidence interval for intercept:", confInt, "\n")
+    cat("Confidence interval for slope:", confSlope)
+}
+```
+
+```{r}
+unemp = matrix(c(rep(1, 10), 113, 123, 127, 138, 130, 146, 151, 152, 141, 159, seq(1, 10, 1), 3.1, 1.9, 1.7, 1.6, 3.2, 2.7, 2.6, 2.9, 4.7, 3.8), ncol = 4)
+unemp
+```
+
+```{r}
+linreg = function(data) {
+    numVars = ncol(data) - 1
+    y = data[ , ncol(data)]
+    X = data[ , 1:numVars]
+    return(solve(t(X) %*% X) %*% t(X) %*% y)
+}
+```
+
+```{r}
+dish = matrix(c(rep(1, 26), seq(1, 26, 1), 34.2, 34.3, 37.7, 42.5, 43.1, 42.7, 38.2, 37.1, 43.1, 43.6, 41, 53.7, 63.8, 62.3, 48.2, 42.2, 51.2, 60.7, 62.4, 59.1, 47.1, 44.7, 37.8, 52.7, 60.3, 61.4, 555, 620, 720, 880, 1050, 1290, 1528, 1586, 1960, 2118, 2116, 2477, 3199, 3702, 3320, 2702, 3140, 3356, 3558, 3488, 2738, 2484, 2170, 3092, 3491, 3536), ncol = 4)
+```
+
+```{r}
+coefCorr = function(data, i1, i2){
+    numVars = ncol(data) - 1
+    X = data[ , 1:numVars]
+    XtXinv = solve(t(X) %*% X)
+    covar = XtXinv[i1, i2]
+    var1 = XtXinv[i1, i1]
+    var2 = XtXinv[i2, i2]
+    return(covar/sqrt(var1 * var2))
+}
+```
+
+```{r}
+covarMat = function(data) {
+    X = data.matrix(cbind(1, data[, !(names(data) %in% c("y"))]))
+    return(solve(t(X) %*% X))
+}
+```
+
+
+```{r}
+df = data.frame(dish[, 2:4])
+colnames(df) = c("year", "invest", "y")
+head(df)
+```
+
+
+```{r}
+multiHypo = function(data, coef, h0val, alternative="not.equal") {
+    lMod = lm(y~., data = data)
+    modR = resid(lMod)
+    X = as.matrix.data.frame(cbind(1, data[ , !(names(data)%in% c("y"))]))
+    XtXinv = solve(t(X) %*% X)
+    regCoef = lMod$coefficients[coef + 1]
+    cat("Regression coefficient value:", regCoef, "\n")
+    varCoef = XtXinv[coef + 1, coef + 1]
+    cat("Variance of coefficient:", varCoef, "\n")
+    n = nrow(data)
+    p = ncol(data)
+    degFree = n - p
+    sigPrime = sqrt(sum(modR^2)/degFree)
+    cat("Sigma prime:", sigPrime, "\n")
+    U = (regCoef - h0val)/sqrt(varCoef)/sigPrime
+    cat("U statistic:", U, "\n")
+    cat("Degrees of freedom:", degFree, "\n")
+    if (alternative == "not.equal") {
+        if (U > 0) {
+        pval = 2*pt(U, df = degFree, lower.tail = FALSE)
+        } else {
+            pval = 2*pt(U, df = degFree)
+        }
+    } else if (alternative == "greater") {
+        pval = pt(U, df = degFree, lower.tail = FALSE)
+    } else{
+        pval = pt(U, df=degFree)
+    }
+    cat("P value:", pval, "\n")
+}
+```
+
+```{r}
+multiConf = function(data, zpr, alpha) {
+    lMod = lm(y~., data = data)
+    modR = resid(lMod)
+    yhat = predict(lMod, zpr)
+    X = as.matrix.data.frame(cbind(1, data[ ,  !(names(data)%in% c("y"))]))
+    n = nrow(data)
+    p = ncol(data)
+    degFree = n - p
+    sigPrime = sqrt(sum(modR^2)/degFree)
+    zpr = data.matrix(cbind(1, zpr))
+    confInt = yhat + c(-1, 1)*qt((1 - alpha/2), df=degFree) * sigPrime * 
+        sqrt(1 + as.vector(zpr %*% solve(t(X) %*% X) %*% t(zpr)))
+    cat("Prediction:", yhat, "\n")
+    cat("Sigma prime:", sigPrime, "\n")
+    cat("Confidence interval:", confInt, "\n")
+}
+```
+
+```{r}
+rSquare = function(data) {
+    lmod = lm(y~., data)
+    modR = resid(lmod)
+    ybar = mean(data$y)
+    numer = sum(modR^2)
+    denom = sum((data$y - ybar)^2)
+    return(1.0 - numer/denom)
+}
+```
+
+```{r}
+Wtest = function(data, i, j, beta_i, beta_j){
+    i = i + 1
+    j = j + 1
+    covMat = covarMat(data)
+    p = ncol(data)
+    lMod = lm(y~., data = data)
+    n = nrow(data)
+    sigma = sum(resid(lMod)^2)
+    p_ij = covMat[i, j]
+    p_ii = covMat[i, i]
+    p_jj = covMat[j, j]
+    b_i_hat = coef(lMod)[i]
+    b_j_hat = coef(lMod)[j]
+    W = (p_jj*(b_i_hat - beta_i)^2 + p_ii*(b_j_hat - beta_j)^2 - 2*p_ij*(b_i_hat - beta_i) *(b_j_hat - beta_j))/(p_ii*p_jj - p_ij^2)
+    fstat = W/(2*sigma)*(n - p)
+    cat("W squared:", W, "\n")
+    cat("Sigma squared:", sigma, "\n")
+    cat("F statistic:", fstat, "\n")  
+    cat("P value:", pf(fstat, df1 = 2, df2 = (n - p), lower.tail = FALSE))
+}
+```
+
