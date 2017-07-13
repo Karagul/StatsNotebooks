@@ -1,0 +1,88 @@
+---
+title: "Bayes Statistics"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(reshape2)
+```
+
+```{r}
+betaPost = function(alpha, beta, n, sigmaX) {
+    probs = seq(0, 1, 0.001)
+    priorProbs = dbeta(probs, alpha, beta)
+    alphaPost = alpha + sigmaX
+    betaPost = beta + n - sigmaX
+    postProbs = dbeta(probs, alphaPost, betaPost)
+    df = data.frame(prob=probs, prior=priorProbs, posterior=postProbs)
+    df = melt(df, id=c("prob"))
+    ggplot(df) + geom_line(aes(x=prob, y=value, colour=variable)) +
+        scale_color_manual(values=c("red", "blue"))
+}
+```
+
+```{r}
+normCred = function(delta, mu, sigma0, nu, n, alpha) {
+    postMu = (delta^2*mu + sigma0^2*nu)/(n*delta^2 + sigma0^2)
+    postVar = (sigma0^2*delta^2)/(n*delta^2 + sigma0^2)
+    cat("Posterior Mean:", postMu, "\n")
+    cat("Posterior Variance:", postVar, "\n")
+    qStat = qnorm((1 + alpha)/2)
+    credInt = postMu + c(-1, 1)*qStat*sqrt(postVar)
+    cat(alpha*100, "% credible interval:", credInt)
+}
+```
+
+```{r}
+expCred = function(alpha, beta, n, sigmaX, level) {
+    aPost = n + alpha
+    cat("Posterior alpha:", aPost, "\n")
+    bPost = beta/(beta*sigmaX + 1)
+    cat("Posterior beta:", bPost, "\n")
+    credInt = qgamma(c((1 -level)/2, (1+level)/2), aPost, 1/bPost)
+    cat(level*100, "% credible interval:", credInt)
+}
+```
+
+```{r}
+binCred = function(alpha, beta, n, sigmaX, level, verbose = FALSE){
+    aPost = alpha + sigmaX
+    bPost = beta + n - sigmaX
+    credInt = qbeta(c((1 - level)/2, (1+level)/2), aPost, bPost)
+    if (verbose == TRUE) {
+        cat("Posterior alpha:", aPost, "\n")
+        cat("Posterior beta:", bPost, "\n")
+        cat(level*100, "% credible interval:", credInt)
+    }
+    return(credInt)
+}
+```
+
+```{r}
+poisCred = function(alpha, beta, n, sigmaX, level){
+    aPost = alpha + sigmaX
+    bPost = beta/(n*beta + 1)
+    cat("Posterior alpha:", aPost, "\n")
+    cat("Posterior beta:", bPost, "\n")
+    credInt = qgamma(c((1 - level)/2, (1 + level)/2), aPost, 1/bPost)
+    cat(level*100, "% credible interval:", credInt)
+}
+```
+
+```{r}
+n = 100
+meanLengths = rep(NA, n)
+for (i in 1:n) {
+    sims = rbinom(10, i, 0.3)
+    credInts = rep(NA, 10)
+    for (j in 1:10) {
+        credInt = binCred(1, 1, i, sigmaX = sims[j], level = 0.95)
+        intLength = credInt[2] - credInt[1]
+        credInts[j] = intLength
+    }
+    meanLengths[i] = mean(credInts)
+}
+plot(1:n, meanLengths)
+```
+
