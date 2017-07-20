@@ -1,0 +1,92 @@
+---
+title: "anova"
+author: "Steve Zhang"
+date: "July 12, 2017"
+output: html_document
+---
+
+```{r}
+hotdog = list(c(186, 181, 176, 149, 184, 190, 158, 139, 175, 148, 152, 111, 141, 153, 190, 157, 131, 149, 135, 132), c(173, 191, 182, 190, 172, 147, 146, 139, 175, 136, 179, 153, 107, 195, 135, 140 , 138), c(129, 132, 102, 106, 94, 102, 87, 99, 107, 113, 135, 142, 86, 143, 152, 146, 144), c(155, 170, 114, 191, 162, 146, 140, 187, 180))
+```
+
+```{r}
+anova_table = function(data) {
+    p = length(data)
+    n = length(unlist(data))
+    SSresid = 0
+    SStotal = 0
+    SSbtwn = 0
+    yBar = mean(unlist(data))
+    for (i in 1:p) {
+        group = data[[i]]
+        gMean = mean(group)
+        cat("Group", i, "mean:", gMean, "\n")
+        nGroup = length(group)
+        SStotal = SStotal + sum((group - yBar)^2)
+        SSresid = SSresid + sum((group - gMean)^2)
+        SSbtwn = SSbtwn + nGroup*(gMean - yBar)^2
+    }
+    cat("Overall mean:", yBar, "\n")
+    cat("MLE of common variance:", SSresid/n,"\n")
+    cat("Sum of squares between samples:", SSbtwn, "\n")
+    cat("Sum of squares residuals:", SSresid, "\n")
+    cat("Sum of squares total:", SStotal, "\n")
+    Ustat = (SSbtwn/(p - 1))/(SSresid/(n - p))
+    cat("U squared statistic:", Ustat, "\n")
+    cat("P value:", pf(Ustat, df1 = (p-1), df2 = (n-p), lower.tail = FALSE))
+}
+```
+
+```{r}
+milk = matrix(c(6.4, 8.5, 9.3, 8.8, 3.2, 7.8, 6, 5.6, 6.9, 10.1, 9.6, 8.4), ncol = 3)
+```
+
+```{r}
+twoWay = function(data) {
+    muHat = mean(data)
+    rows = rowMeans(data)
+    n = length(data)
+    numRows = dim(data)[1]
+    numCols = dim(data)[2]
+    rowMat = matrix(rep(rows, numCols), ncol = numCols)
+    cols = colMeans(data)
+    colMat = matrix(rep(cols, numRows), ncol = numCols, byrow = TRUE)
+    fitted = rowMat + colMat - muHat
+    cat("Overall mean:", muHat, "\n")
+    cat("Row means:", rows, "\n")
+    cat("Column means:", cols, "\n")
+    ssResid = sum((fitted - data)^2)
+    cat("Fitted:", fitted, "\n")
+    cat("Sum squared deviations:", ssResid, "\n")
+    sigmaHat = ssResid / n
+    cat("Sigma squared MLE:", sigmaHat, "\n")
+    sigmaPrime = sqrt(ssResid/(numRows - 1)/(numCols - 1))
+    cat("Sigma prime:", sigmaPrime, "\n")
+    s2A = numCols * sum((rows - muHat)^2)
+    s2B = numRows * sum((cols - muHat)^2)
+    cat("Sum of squares factor A:", s2A, "\n")
+    cat("Sum of squares factor B:", s2B, "\n")
+    U2A = s2A/(numRows - 1)/sigmaPrime^2
+    cat("U statistic treatment 1:", U2A, "\n")
+    cat("P value treatment 1:", pf(U2A, df1 = (numRows-1), 
+                    df2 = (numRows-1)*(numCols-1), lower.tail = FALSE), "\n")
+    U2B = s2B/(numCols - 1)/sigmaPrime^2
+    cat("U statistic treatment 2:", U2B, "\n")
+    cat("P value treatment 2:", pf(U2B, df1=(numCols - 1), df2 = (numRows - 1)*(numCols - 1), lower.tail = FALSE), "\n")
+    U2AB = (s2A + s2B)/(numCols + numRows - 2)/sigmaPrime
+    cat("U statistic both treatments:", U2AB, "\n")
+    cat("P value both treatments:", pf(U2AB, df1=(numRows + numCols - 2), df2 = (numRows - 1)*(numCols - 1), lower.tail = FALSE), "\n")
+}
+```
+
+```{r}
+equipment = factor(c(rep("Equip", 15), rep("Not", 15)))
+carType = factor(c(rep(c(rep("Compact", 5), rep("Intermediate", 5), rep("Standard", 5)), 2)))
+fuel = c(8.3, 8.9, 7.8, 8.5, 9.4, 9.2, 10.2, 9.5, 11.3, 10.4, 11.6, 10.2, 10.7, 11.9, 11, 8.7, 10, 9.7, 7.9, 8.4, 8.2, 10.6, 10.1, 11.3, 10.8, 12.4, 11.7, 10, 11.1, 11.8)
+df = data.frame(equip = equipment, car=carType, fuel=fuel)
+```
+
+```{r}
+anova(lm(fuel ~ equip*car, df))
+```
+
