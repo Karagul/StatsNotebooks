@@ -1,0 +1,106 @@
+---
+title: "RFunctions"
+author: "Steve Zhang"
+date: "July 26, 2017"
+output: html_document
+---
+
+```{r}
+qpareto = function(p=0.5, exponent, threshold, lower.tail = TRUE) {
+    stopifnot(p >= 0, p <= 1, exponent > 1, threshold > 0)
+    if (lower.tail == FALSE) {
+        p = 1 - p
+    }
+    q = threshold * ((1 - p)^(-1.0/(exponent - 1)))
+    return(q)
+}
+```
+
+```{r}
+rpareto = function(n, exponent = 2.5, threshold = 1) {
+    x = qpareto(p = runif(n), exponent, threshold)
+    return(x)
+}
+```
+
+```{r}
+theoretical.percentiles = qpareto(p = seq(0.0, 0.99, 0.01), exponent = 2.5, threshold = 1)
+```
+
+
+```{r}
+paretoSim = function(n, exponent, threshold, theoretical.percentiles, ...) {
+    r = rpareto(n, exponent, threshold)
+    simulated.percentiles = quantile(r, (0:99)/100)
+    points(theoretical.percentiles, simulated.percentiles, ...)
+}
+```
+
+```{r}
+r = rpareto(1e4)
+simulated.percentiles = quantile(r, (0:99)/100)
+plot(theoretical.percentiles, simulated.percentiles)
+abline(0, 1)
+for (i in 1:10) {
+    paretoSim()
+}
+```
+
+```{r}
+checkPareto = function(n = 1e4, exponent = 2.5, threshold = 1, B = 10){
+    theoretical.percentiles = qpareto(p = seq(0.0, 0.99, 0.01), exponent, threshold)
+    plot(0, type="n", xlim=c(0, max(theoretical.percentiles)), 
+         ylim = c(0, 1.1*max(theoretical.percentiles)),
+         main = paste("Exponent = ", exponent, ", threshold = ", threshold))
+    abline(0, 1)
+    for (i in 1:B){
+        paretoSim(n, exponent, threshold, theoretical.percentiles, pch=i, type="b", lty = i)
+    }
+}
+```
+
+```{r}
+checkPareto()
+```
+
+Huber loss function.
+
+```{r}
+huber = function(x) {
+    return(ifelse(abs(x) <= 1, x^2, 2*abs(x) - 1))
+}
+```
+
+```{r}
+curve(x^2, col="grey", from = -5, to=5, ylab = "")
+curve(huber, add = TRUE)
+```
+
+```{r}
+x = replicate(10, rpareto(100, 2.5, 1))
+apply(x, 2, quantile, probs = 0.9)
+```
+
+```{r}
+gaussMLE = function(x) {
+    n = length(x)
+    mean.est = mean(x)
+    var.est = var(x) * (n - 1)/n
+    return(list(mean = mean.est, sd = sqrt(var.est)))
+}
+```
+
+```{r}
+seMedian = function(B, simulator, ...) {
+    medians = replicate(B, simulator)
+    se.in.median = sd(medians)
+    return(se.in.median)
+}
+```
+
+```{r}
+sim.1 = function() {
+    return(rnorm(100, 3, 2))
+}
+```
+
