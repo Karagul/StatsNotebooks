@@ -1,0 +1,90 @@
+---
+title: "GradientDescent"
+author: "Steve Zhang"
+date: "January 14, 2017"
+output: html_document
+---
+
+```{r}
+gradient <- function(lamb = 0.01, maxiter = 100) {
+    vec <- c(0.1, -3)
+    for (i in 1:maxiter) {
+        grad <- c(4*vec[1], -8*vec[2] + 6)
+        vec <- vec - lamb * grad
+    }
+    return(c(vec, 2*vec[1]^2 - vec[2]^2 + 6*vec[2]))
+}
+gradient()
+```
+
+```{r}
+#random data where y is a noisy function of x
+x <- runif(1000, -5, 5)
+y <- x + rnorm(1000) + 3
+plot(x, y)
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+df <- data.frame(x, y)
+colnames(df) <- c("X", "Y")
+head(df)
+```
+
+```{r}
+ggplot(df, aes(x, y))  + geom_point() + geom_smooth(method="lm", formula = y ~ x, se = TRUE)
+```
+
+```{r}
+res <- lm(y ~ x)
+print(res)
+```
+
+```{r}
+cost <- function(X, y, w) {
+    sum( (X %*% w - y)^2 ) / (2*length(y))
+}
+```
+
+```{r}
+gradreg <- function(X, y, alpha = 0.01, num_iters = 1000, epsilon = 0.0000001) {
+    cost_hist <- rep(NA, num_iters)
+    w_history <- list(num_iters)
+    w <- matrix(c(0.0, 0.0), nrow = 2) #initialize coefficients
+    X <- cbind(1, matrix(X))
+    for (i in 1:num_iters) {
+        error <- (X %*% w -y)
+        delta <- t(X) %*% error / length(y)
+        w <- w - alpha * delta #update weights
+        cost_hist[i] <- cost(X, y, w)
+        w_history[[i]] <- w
+        if (i > 1 && abs(cost_hist[i] - cost_hist[i-1]) < epsilon) {
+            break()
+        }
+    }
+    cat("Final coefficients:", w_history[[length(w_history)]]) #print last estimate
+    plot(cost_hist, type="line", col="blue", lwd=2, main="Cost Function", xlab = "Iteration", ylab = "Cost")
+    plot(x, y, col=rgb(0.2, 0.4, 0.6, 0.4), main="Linear regression by gradient descent")
+    for (i in c(1, 3, 6, 10, 14, seq(20, num_iters, by=10))) {
+        abline(coef=w_history[[i]], col=rgb(0.8, 0, 0, 0.3))
+    }
+    abline(coef=w, col="blue")
+}
+gradreg(x, y)
+```
+
+```{r}
+gradreg(x, y, alpha = 0.1)
+```
+
+
+ 
+```{r}
+gradreg(c(1, 3, 5), c(4.8, 11.3, 17.2), alpha = 0.02, num_iters = 1000)
+```
+
+
+
