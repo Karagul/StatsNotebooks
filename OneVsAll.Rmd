@@ -1,0 +1,111 @@
+---
+title: "OneVsAll"
+author: "Steve Zhang"
+date: "February 12, 2017"
+output: html_document
+---
+
+```{r}
+library(R.matlab)
+```
+
+```{r}
+dat <- readMat("ex3data1.mat")
+str(dat)
+```
+
+```{r}
+dim(dat$X)
+dim(dat$y)
+```
+
+```{r}
+sigmoid <- function(z) {
+    return(1.0/(1 + exp(-z)))
+}
+```
+
+```{r}
+cost <- function(theta, X, y, lamb) {
+    m <- nrow(X)
+    first <- (-y) * log(sigmoid(X %*% theta))
+    second <- (1 - y) * log(1 - sigmoid(X %*% theta))
+    reg <- lamb / (2.0*m) * sum(theta^2)
+    return(sum(first - second)/m + reg)
+}
+```
+
+```{r}
+gradient <- function(theta, X, y, lamb) {
+    error <- sigmoid(X %*% theta) - y
+    m <- nrow(X) #number of observations
+    
+    grad <- t(1.0/m * t(X) %*% error) + ((lamb/m)*theta)
+    return(as.vector(grad))
+}
+```
+
+```{r}
+oneVsAll <- function(X, y, num_labels, learn) {
+    rows <- dim(X)[1]
+    params <- dim(X)[2]
+    
+    all_theta <- matrix(rep(0, num_labels*(params + 1)), nrow = num_labels)
+    X <- cbind(1, X)
+    for (i in 1:num_labels) {
+        theta <- matrix(rep(0, params + 1), nrow = params + 1)
+        y_i <- ifelse(y == i, 1, 0) #binary label for class
+        y_i <- matrix(y_i, nrow = rows)
+        fmin <- optim(par = theta, fn = cost, gr = gradient, method = "CG", X=X, y=y_i, lamb=learn)
+        all_theta[, ] <- fmin$par
+    }
+    return(all_theta)
+}
+```
+
+```{r}
+rows <- dim(dat$X)[1]
+params <- dim(dat$X)[2]
+all_theta <- matrix(rep(0, 10 * (params + 1)), nrow = 10)
+X <- cbind(dat$X, 1)
+theta <- matrix(rep(0, params + 1), nrow = params + 1)
+y_0 <- ifelse(dat$y == 0, 1, 0)
+y_0 <- matrix(y_0, nrow = rows)
+dim(X)
+dim(y_0)
+dim(theta)
+dim(all_theta)
+```
+
+
+```{r}
+all_theta <- oneVsAll(dat$X, dat$y, 10, 1.0)
+```
+
+```{r}
+library(ramify)
+```
+
+
+
+```{r}
+predAll <- function(X, all_theta) {
+    rows <- dim(X)[1]
+    params <- dim(X)[2]
+    num_labels <- dim(all_theta)[1]
+    X <- cbind(1, X)
+    
+    h <- sigmoid(X %*% t(all_theta))
+    h_argmax <- argmax(h, rows = TRUE)
+    return(h_argmax + 1)
+}
+```
+
+```{r}
+preds <- predAll(dat$X, all_theta)
+table(preds)
+mean(preds == dat$y)
+```
+
+
+
