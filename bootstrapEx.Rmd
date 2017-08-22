@@ -1,0 +1,216 @@
+---
+title: "BootstrapEx"
+author: "Steve Zhang"
+date: "April 28, 2017"
+output: html_document
+---
+
+```{r}
+boil = c(194.5, 194.3, 197.9, 198.4, 199.4, 199.9, 200.9, 201.1, 201.4, 201.3, 203.6,
+         204.6, 209.5, 208.6, 210.7, 211.9, 212.2)
+median(boil)
+sampMedians = rep(0, 2000)
+for (i in 1:2000) {
+    bSamp = sample(boil, 17, replace = TRUE)
+    sampMedians = median(bSamp)
+}
+mean(sampMedians) - median(boil)
+var(sampMedians)
+```
+
+```{r}
+hotdogs = c(186, 181, 176, 149, 184, 190, 158, 139, 175, 148, 152, 111, 141, 153, 190,
+            157, 131, 149, 135, 132)
+sampMean = mean(hotdogs)
+sampMean
+sampSD = sd(hotdogs)
+sampSD
+sampMed = median(hotdogs)
+sampMed
+```
+
+```{r}
+trials = 10000
+hotMeds = rep(0, trials)
+for (i in 1:trials) {
+    hotSamp = sample(hotdogs, size = 20, replace = TRUE)
+    hotMeds[i] = median(hotSamp)
+}
+c(quantile(hotMeds, 0.05), quantile(hotMeds, 0.95))
+156.9 + c(-1, 1)*qt(0.95, df = 19)*sampSD/sqrt(length(hotdogs))
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+mus = seq(-5, 5, 0.001)
+mu0 = 1.0
+n = 20
+sig = 2.0
+alpha0 = 0.05
+z_alpha0 = pnorm(1 - alpha0)
+probs = pnorm(sqrt(n)*(mus - mu0)/sig - z_alpha0)
+df = data.frame(mu = mus, power = probs)
+ggplot(data = df, aes(x = mu, y = power)) + geom_line()
+```
+
+```{r}
+probs2 = pnorm(sqrt(n)*(mu0 - mus)/sig - z_alpha0)
+df2 = data.frame(mu = mus, power = probs2)
+ggplot(data = df2, aes(x=mu, y = power)) + geom_line()
+```
+
+```{r}
+pgraph = function(alp1, alp2, n, sig, mu0) {
+    q1 = qnorm(1 - alp1)
+    q2 = qnorm(1 - alp2)
+    c1 = mu0 - q1*sig/sqrt(n)
+    c2 = mu0 + q2 * sig/sqrt(n)
+    mus = seq(-5, 5, 0.001)
+    prob1 = pnorm((c1 - mus)/(sig/sqrt(n)))#probability sample mean less than c1
+    prob2 = pnorm((c2 - mus)/(sig/sqrt(n)), lower.tail = F)#sample mean greater than c2
+    prob = prob1 + prob2
+    df = data.frame(mu=mus, power = prob)
+    ggplot(data = df, aes(x=mu, y=power)) + geom_line()
+}
+pgraph(0.015, 0.035, 25, 2, 1)
+```
+
+```{r}
+ggraph = function(alp0, n){
+    thetas = seq(0.0, 3.0, 0.001)
+    c1 = qgamma(alp0/2, shape = n, rate = 0.5)
+    c2 = qgamma(1- alp0/2, shape = n, rate = 0.5)
+    prob = pgamma(c1, shape = n, rate = thetas) + pgamma(c2, shape = n, rate=thetas, lower.tail = FALSE)
+    df = data.frame(theta=thetas, power=prob)
+    ggplot(data = df, aes(x=theta, y=power)) + geom_line()
+}
+ggraph(0.05, 3)
+```
+
+```{r}
+ttest = function(xbar1, xbar2, n1, n2, s1, s2, conf_level) {
+    mean_diff = xbar1 - xbar2
+    pool_s = sqrt(((n1 - 1)*s1^2 + (n2 -1)*s2^2)/(n1 + n2 - 2))
+    t_lev = qt((1 + conf_level)/2, df=(n1 + n2 - 2))
+    return(mean_diff + c(-1, 1)*t_lev*pool_s*sqrt(1/n1 + 1/n2))
+}
+```
+
+```{r}
+chitest = function(n, sig2, conf_level) {
+    conf_level = c((1 + conf_level)/2, (1-conf_level)/2)
+    return((n - 1)*sig2 / qchisq(conf_level, df = (n - 1))) 
+}
+chitest(3, 10.57, 0.90)
+```
+
+```{r}
+mus = seq(0.0, 6.05, 0.0025)
+mu0 = 5.2
+n = 15
+sig0 = 0.4226
+Us = sqrt(n)*(mus - mu0)/sig0
+probs2 = pt(1.761, ncp = Us, df = 2, lower.tail = FALSE)
+probs5 = pt(1.761, ncp = Us, df = 5, lower.tail = FALSE)
+probs10 = pt(1.761, ncp=Us, df = 10, lower.tail = FALSE)
+probs60 = pt(1.761, ncp = Us, df = 60, lower.tail = FALSE)
+df = data.frame(mu=mus, df2=probs2, df5=probs5, df10=probs10, df60=probs60)
+ggplot(data = df, aes(x=mu, y=df2)) + geom_line(stat = "identity") + geom_line(aes(x=mu, y=df5)) + geom_line(aes(x=mu, y=df60))
+```
+```{r}
+chisqGraph = function(df) {
+    xs = seq(0.0, df + 4*sqrt(2*df), 0.0025)
+    ys = dchisq(xs, df = df)
+    data = data.frame(x=xs, y=ys)
+    ggplot(data = data, aes(x=x, y=y)) + geom_line()
+}
+chisqGraph(40)
+```
+
+```{r}
+weather = matrix(c(0.7, 0.6, 0.5, 0.2, 0.2, 0.2, 0.1, 0.2, 0.3), nrow = 3)
+weather
+```
+
+```{r}
+library(expm)
+weather %^% 10
+```
+```{r}
+mus = seq(7.0, 10.0, 0.001)
+cutoff = 7.822427
+powers = pnorm((cutoff - mus)/sqrt(5/20), lower.tail = FALSE)
+data = data.frame(mu=mus, power=powers)
+ggplot(data, aes(x=mu, y=power)) + geom_line()
+```
+
+```{r}
+data = data.frame(speed=cars$speed, dist=cars$dist)
+```
+
+```{r}
+lmcars = lm(dist ~ speed, data = cars)
+predcars = predict.lm(lmcars, newdata = data)
+data$preds = predcars
+```
+
+```{r}
+talpha = qt(0.975, df = dim(data)[1] - 2)
+n = dim(data)[1]
+xbar = mean(data$speed)
+ybar = mean(data$dist)
+beta0 = lmcars$coefficients[1]
+beta1 = lmcars$coefficients[2]
+Sxx = sum((data$speed - xbar)^2)
+S = sqrt((1.0/(n - 2))* sum((predcars - ybar)^2))
+data$low = beta0 + beta1*data$speed - talpha*S*sqrt(1/n + (data$speed - xbar)^2/Sxx)
+data$high = beta0 + beta1*data$speed + talpha*S*sqrt(1/n + (data$speed - xbar)^2/Sxx)
+```
+
+```{r}
+library(ggplot2)
+```
+
+
+```{r}
+ggplot(data, aes(x=speed, y=dist)) + geom_point() +
+    geom_line(aes(x=speed, y=preds)) + geom_line(aes(x=speed, y=low, colour="red")) +
+    geom_line(aes(x=speed, y=high, colour="red"))
+```
+
+
+```{r}
+rmin = function(alpha) {
+    Ns = seq(3, 100, by = 1)
+    Tmin = qt(alpha, df = Ns - 2)
+    Ks = Tmin^2 / (Ns - 2)
+    Rs = sqrt(Ks/(Ks + 1))
+    data = data.frame(N = Ns, R = Rs)
+    ggplot(data, aes(x=N, y=R)) + geom_line()
+}
+rmin(0.95)
+```
+
+```{r}
+Y = matrix(c(1, 0, 0, -1, -1, 0, 0), nrow = 7)
+X = matrix(c(1, 1, 1, 1, 1, 1, 1, -3, -2, -1, 0, 1, 2, 3, 9, 4, 1, 0, 1, 4, 9), nrow = 7)
+XtX = solve(t(X) %*% X)
+betas = XtX %*% t(X) %*% Y
+yhat = X %*% betas
+data = data.frame(x=seq(-3, 3, 1), y=as.vector(Y), yhat=as.vector(yhat))
+ggplot(data, aes(x=x, y=y)) + geom_point() + geom_line(aes(x=x, y=yhat))
+```
+
+```{r}
+tplot = function(mu0, sig, dstart, dend, df) {
+    ds = seq(dstart, dend, by = 0.001)
+    probs = pt((ds - mu0)/sig, df=df) - pt((-ds - mu0)/sig, df = df)
+    data = data.frame(d=ds, prob=probs)
+    ggplot(data, aes(x=d, y=prob)) + geom_line()
+}
+tplot(1.144, 0.4495, 0.0, 2.5, 50)
+```
+
