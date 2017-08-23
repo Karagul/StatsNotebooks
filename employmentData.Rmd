@@ -1,0 +1,192 @@
+---
+title: "employmentData"
+author: "Steve Zhang"
+date: "July 11, 2017"
+output: html_document
+---
+
+```{r}
+library(data.table)
+library(plyr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(maps)
+library(bit64)
+library(RColorBrewer)
+library(choroplethr)
+```
+
+```{r}
+df = fread("2012.annual.singlefile.csv")
+```
+```{r}
+for (u in c("agglevel", "area", "industry", "ownership", "size")) {
+    assign(u, read.csv(paste(u, "_titles.csv", sep=""), stringsAsFactors = FALSE))
+}
+```
+
+```{r}
+intersect(names(agglevel), names(df))
+intersect(names(size), names(df))
+```
+
+Join datasets together with codes for fields.
+```{r}
+codes = c("agglevel", "industry", "ownership", "size")
+full = df
+for (i in 1:length(codes)) {
+    eval(parse(text = paste("full <- left_join(full,", codes[i], ")", sep="")))
+}
+```
+
+Function to capitalize names according to dataset conventions.
+```{r}
+simpleCap = function(x) {
+    if (! is.na(x)){
+        s = strsplit(x, " ")[[1]]
+        paste(toupper(substring(s, 1, 1)), substring(s, 2), sep="", collapse = " ")
+    } else {
+        NA
+    }
+}
+```
+
+```{r}
+data(county.fips)
+head(county.fips)
+```
+Format county.fips data.
+
+```{r}
+county.fips$fips = str_pad(county.fips$fips, width = 5, pad="0")
+county.fips$polyname = as.character(county.fips$polyname)
+county.fips$county <- sapply(gsub('[a-z\ ]+,([a-z\ ]+)','\\1',county.fips$polyname),
+simpleCap)
+county.fips = unique(county.fips)
+head(county.fips)
+```
+
+
+```{r}
+data(state.fips)
+head(state.fips)
+```
+
+```{r}
+state.fips$fips = str_pad(state.fips$fips, width = 2, pad="0", side = "left")
+state.fips$state = as.character(state.fips$polyname)
+state.fips$state = gsub("([a-z\ ]+):[a-z\ \\']+", '\\1', state.fips$state)
+state.fips$state = sapply(state.fips$state, simpleCap)
+```
+
+```{r}
+mystatefips = unique(state.fips[, c("fips", "abb", "state")])
+lower48 = setdiff(unique(state.fips$state), c("Hawaii", "Alaska"))
+```
+
+```{r}
+myarea = merge(area, county.fips, by.x="area_fips", by.y="fips", all.x = TRUE)
+myarea$state_fips = substr(myarea$area_fips, 1, 2)
+myarea = merge(myarea, mystatefips, by.x="state_fips", by.y="fips", all.x = TRUE)
+```
+
+Merge with area codes data and filter to include only dataset rows in the lower 48 state.
+```{r}
+full = left_join(full, myarea)
+full = filter(full, state %in% lower48)
+```
+
+Get subset of state-level aggregate data for average annual pay and average annual employment level from dataset.
+```{r}
+d.state = filter(full, agglvl_code == 50)
+d.state = select(d.state, state, avg_annual_pay, annual_avg_emplvl)
+```
+
+Create wage and empquantile variabels to discretize pay and employment variables.
+```{r}
+d.state$wage = cut(d.state$avg_annual_pay, quantile(d.state$avg_annual_pay, c(seq(0, 0.8, by = 0.2), 0.9, 0.95, 0.99, 1)))
+d.state$empquantile = cut(d.state$annual_avg_emplvl, quantile(d.state$annual_avg_emplvl, c(seq(0, 0.8, by = 0.2), 0.9, 0.95, 0.99, 1)))
+```
+
+```{r}
+Discretize = function(x, breaks = NULL){
+    if(is.null(breaks)){
+        breaks = quantile(x, c(seq(0, 0.8, by = 0.2), 0.9, 0.95, 0.99, 1))
+        if (sum(breaks == 0) > 1){
+            temp = which(breaks ==0, arr.ind = TRUE)
+            breaks = breaks[max(temp):length(breaks)]
+        }
+    }
+    x.discrete = cut(x, breaks, include.lowest = TRUE)
+    breaks.eng = ifelse(breaks > 1000, paste0(round(breaks/1000), "K"), round(breaks))
+    Labs = paste(breaks.eng[-length(breaks.eng)], breaks.eng[-1], sep = "-")
+    levels(x.discrete) = Labs
+    return(x.discrete)
+}
+```
+Use discretize function to create discretized columns for wage and employment
+```{r}
+d.state = filter(full, agglvl_code == 50) %>% select(state, avg_annual_pay, annual_avg_emplvl) %>% mutate(wage=Discretize(avg_annual_pay), empquantile=Discretize(annual_avg_emplvl)) 
+```
+
+Do same thing for county level aggregation.
+```{r}
+d.cty = filter(full, agglvl_code == 70) %>% select(state, county, abb, avg_annual_pay, annual_avg_emplvl) %>% mutate(wage=Discretize(avg_annual_pay), empquantile=Discretize(annual_avg_emplvl))
+```
+
+```{r}
+state_df = map_data("state")
+county_df = map_data("county")
+```
+
+Clean up map data to match dataset.
+```{r}
+transform_mapdata = function(x) {
+    names(x)[5:6] = c("state", "county")
+    for (u in c("state", "county")) {
+        x[, u] = sapply(x[, u], simpleCap)
+    }
+    return(x)
+}
+```
+
+```{r}
+state_df = transform_mapdata(state_df)
+county_df = transform_mapdata(county_df)
+```
+
+```{r}
+chor = left_join(state_df, d.state, by="state")
+```
+
+Wage heatmap by state.
+```{r}
+stateIncomeMap = ggplot(chor, aes(long, lat, group=group)) + geom_polygon(aes(fill=wage)) + geom_path(color="black", size=0.2) + scale_fill_brewer(palette = "PuRd") + theme(axis.text.x = element_blank(), axis.text.y = element_blank(), axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
+```
+
+Wage heatmap by county.
+```{r}
+chor = left_join(county_df, d.cty)
+```
+
+```{r}
+ggplot(chor, aes(long, lat, group=group)) + geom_polygon(aes(fill=wage)) + geom_path(color="white", alpha=0.5, size=0.2) + geom_polygon(data=state_df, color="black", fill=NA) + scale_fill_brewer(palette = "PuRd") + labs(x="", y="", fill="Avg Annual Pay") + theme(axis.text.x = element_blank(), axis.text.y = element_blank(), axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
+```
+
+Look at a subset of data for the private, industrial sector.
+
+```{r}
+d.sectors = filter(full, industry_code %in% c(11, 21, 54, 52), own_code == 5, agglvl_code == 74) %>% select(state, county, industry_code, own_code, agglvl_code, industry_title, own_title, avg_annual_pay, annual_avg_emplvl) %>% mutate(wage = Discretize(avg_annual_pay), emplevel=Discretize(annual_avg_emplvl))
+d.sectors = filter(d.sectors, !is.na(industry_code))
+```
+
+```{r}
+chor <- left_join(state_df, d.sectors)
+```
+
+
+```{r}
+ggplot(chor, aes(long, lat, group=group)) + geom_polygon(aes(fill = emplevel)) + geom_polygon(data = state_df, color="black", fill=NA) + scale_fill_brewer(palette = "PuBu") + facet_wrap(~industry_title, ncol=2, as.table = TRUE) + labs(fill="Avg EmploymentLevel", x="", y="") + theme(axis.text.x = element_blank(), axis.text.y = element_blank(), axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
+```
+
